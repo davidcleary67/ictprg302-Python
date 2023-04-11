@@ -33,7 +33,7 @@ def main():
         print("Destination directory is " + dstDir)
         print("Destination location is " + dstLoc)
         
-        if pathlib.Path(srcLoc).is_dir():
+        if pathlib.Path(srcLoc).is_dir():4yy
             shutil.copytree(srcLoc, dstLoc)
         else:
             shutil.copy2(srcLoc, dstLoc)

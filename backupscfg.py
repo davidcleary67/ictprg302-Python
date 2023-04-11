@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 # jobs dictionary
-jobs = {"job1" : "work/file1.txt",
-        "job2" : "work/dir1",
-        "job3" : "work/missing.txt"}
+jobs = {"job1" : ["work/file1.txt", "work/file2.txt"],
+        "job2" : ["work/dir1"],
+        "job3" : ["work/missing.txt"]}
 
 # email settings
 smtp = {"sender": "dcleary@sunitafe.edu.au",

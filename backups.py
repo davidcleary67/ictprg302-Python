@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-Program:   backup.py
+Program:   backups.py
 Version:   1.0
 Date:      11 Apr 2023
 Author:    David Cleary
@@ -16,20 +16,11 @@ import pathlib
 import shutil
 import smtplib
 from datetime import datetime
-from backupcfg import jobs, smtp, backupDir, logFile # configuration file
+from backupscfg import jobs, smtp, backupDir, logFile
 
 ## functions
 def writeLog(success, message, dateTimeStamp):
-    """
-    Write a message to log file.
-    
-    Parameters:
-        success (boolean): True -> write success message
-                           False -> write failure message. 
-        
-        message (string): message to display.
-        
-        dateTimeStamp (string): Date and time when program was run.
+    """ Write message to log file.
     """
     
     try:
@@ -45,13 +36,7 @@ def writeLog(success, message, dateTimeStamp):
         print("ERROR: Log file " + logFile + " is not accessible")
    
 def sendEmail(message, dateTimeStamp):
-    """
-    Send an email message to the specified recipient.
-    
-    Parameters:
-        message (string): message to send.
-        
-        dateTimeStamp (string): Date and time when program was run.
+    """ Send an email message to the specified recipient."
     """
     
     # create email message
@@ -71,14 +56,8 @@ def sendEmail(message, dateTimeStamp):
         print("ERROR: Unable to send email")
 
 def errorProcessing(errorMessage, dateTimeStamp):
-    """ 
-    Display error message to the screem, email it to the administrator and
-    write it to the log file backup.log.
-        
-    Parameters:
-        errorMessage (string): message to display.
-        
-        dateTimeStamp (string): Date and time when program was run.
+    """ Display error message to the screem, email it to the administrator and
+        write it to the log file, backup.log.
     """
     
     # display error message on screen
@@ -92,15 +71,11 @@ def errorProcessing(errorMessage, dateTimeStamp):
 
 ## main function
 def main():
-    """ 
-    Main function.  Backup a file or directory referred to by command line
-    argument and specified in jobs in the backupcfg.py file.
-    Successful backups are written to the log file, backup.log.
-    Errors are displayed on the screen, emailed to the adminstrator and 
-    written to the log file backup.log.
-    Details of files and directories to be backed-up and other
-    configuration details are specified in the configuration file,
-    backupscfg.py.
+    """ Main function.  Backup a series of files or directories referred to by
+        command line argument and specified in jobs in the backupscfg.py file.
+        Successful backups are written to the log file, backup.log.
+        Errors are displayed on the screen, emailed to the adminstrator and 
+        written to the log file, backup.log.
     """
 
     try:
@@ -122,35 +97,36 @@ def main():
             
             else:
                 
-                # get source file/directory and check it exists
-                src = jobs[jobName]
+                # loop through source files/directories to be backed-up
+                for src in jobs[jobName]:
                 
-                if not os.path.exists(src):
-                    errorProcessing("Source file/directory: " + src + " does not exist", dateTimeStamp)
-                
-                else:
+                    # check file/directory exists
+                    if not os.path.exists(src):
+                        errorProcessing("Source file/directory: " + src + " does not exist", dateTimeStamp)
                     
-                    # get destination directory and check it exists
-                    srcPath = pathlib.PurePath(src)
-                    
-                    if not os.path.exists(backupDir):
-                        errorProcessing("Destination directory: " + backupDir + " does not exist", dateTimeStamp)
-                        
                     else:
                         
-                        # copy source directory/file to destination directory
-                        dst = backupDir + "/" + srcPath.name + "-" + dateTimeStamp
+                        # get destination directory and check it exists
+                        srcPath = pathlib.PurePath(src)
                         
-                        # copy source directory
-                        if pathlib.Path(src).is_dir():
-                            shutil.copytree(src, dst)
+                        if not os.path.exists(backupDir):
+                            errorProcessing("Destination directory: " + backupDir + " does not exist", dateTimeStamp)
                             
-                        # copy source file
                         else:
-                            shutil.copy2(src, dst)
-                        
-                        # write success message to log
-                        writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
+                            
+                            # copy source directory/file to destination directory
+                            dst = backupDir + "/" + srcPath.name + "-" + dateTimeStamp
+                            
+                            # copy source directory
+                            if pathlib.Path(src).is_dir():
+                                shutil.copytree(src, dst)
+                                
+                            # copy source file
+                            else:
+                                shutil.copy2(src, dst)
+                            
+                            # write success message to log
+                            writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
     
     except Exception as e:
         print("ERROR: backup.py program failed: " + str(e))
