@@ -39,10 +39,10 @@ def writeLog(success, message, dateTimeStamp):
         file.close()
     
     except FileNotFoundError:
-        print("ERROR: Log file " + logFile + " does not exist")
+        print("ERROR: Log file " + logFile + " does not exist", file=sys.stderr)
    
     except IOError:
-        print("ERROR: Log file " + logFile + " is not accessible")
+        print("ERROR: Log file " + logFile + " is not accessible", file=sys.stderr)
    
 def sendEmail(message, dateTimeStamp):
     """
@@ -67,8 +67,8 @@ def sendEmail(message, dateTimeStamp):
         smtp_server.sendmail(smtp["sender"], smtp["recipient"], email)
         smtp_server.close()
         
-    except:
-        print("ERROR: Unable to send email")
+    except Exception as e:
+        print("ERROR: Send email failed: " + str(e), file=sys.stderr)
 
 def errorProcessing(errorMessage, dateTimeStamp):
     """ 
@@ -81,8 +81,8 @@ def errorProcessing(errorMessage, dateTimeStamp):
         dateTimeStamp (string): Date and time when program was run.
     """
     
-    # display error message on screen
-    print("ERROR: " + errorMessage)
+    # write error message to standard error
+    print("ERROR: " + errorMessage,  file=sys.stderr)
     
     # write error message to log
     writeLog(False, errorMessage, dateTimeStamp)
@@ -153,7 +153,7 @@ def main():
                         writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
     
     except Exception as e:
-        print("ERROR: backup.py program failed: " + str(e))
+        print("ERROR: backup.py program failed: " + str(e), file=sys.stderr)
   
 ## call main function  
 if __name__ == "__main__":

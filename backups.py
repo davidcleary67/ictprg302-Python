@@ -16,11 +16,20 @@ import pathlib
 import shutil
 import smtplib
 from datetime import datetime
-from backupscfg import jobs, smtp, backupDir, logFile
+from backupscfg import jobs, smtp, backupDir, logFile # configuration file
 
 ## functions
 def writeLog(success, message, dateTimeStamp):
-    """ Write message to log file.
+    """
+    Write a message to log file.
+    
+    Parameters:
+        success (boolean): True -> write success message
+                           False -> write failure message. 
+        
+        message (string): message to display.
+        
+        dateTimeStamp (string): Date and time when program was run.
     """
     
     try:
@@ -30,15 +39,21 @@ def writeLog(success, message, dateTimeStamp):
         file.close()
     
     except FileNotFoundError:
-        print("ERROR: Log file " + logFile + " does not exist")
+        print("ERROR: Log file " + logFile + " does not exist", file=sys.stderr)
    
     except IOError:
-        print("ERROR: Log file " + logFile + " is not accessible")
+        print("ERROR: Log file " + logFile + " is not accessible", file=sys.stderr)
    
 def sendEmail(message, dateTimeStamp):
-    """ Send an email message to the specified recipient."
     """
+    Send an email message to the specified recipient.
     
+    Parameters:
+        message (string): message to send.
+        
+        dateTimeStamp (string): Date and time when program was run.
+    """
+
     # create email message
     email = 'To: ' + smtp["recipient"] + '\n' + 'From: ' + smtp["sender"] + '\n' + 'Subject: Backup Error\n\n' + message + '\n'
 
@@ -52,18 +67,24 @@ def sendEmail(message, dateTimeStamp):
         smtp_server.sendmail(smtp["sender"], smtp["recipient"], email)
         smtp_server.close()
         
-    except:
-        print("ERROR: Unable to send email")
+    except Exception as e:
+        print("ERROR: Send email failed: " + str(e), file=sys.stderr)
 
 def errorProcessing(errorMessage, dateTimeStamp):
-    """ Display error message to the screem, email it to the administrator and
-        write it to the log file, backup.log.
+    """ 
+    Display error message to the screem, email it to the administrator and
+    write it to the log file backup.log.
+        
+    Parameters:
+        errorMessage (string): message to display.
+        
+        dateTimeStamp (string): Date and time when program was run.
     """
+
+    # write error message to standard error
+    print("ERROR: " + errorMessage, file=sys.stderr)
     
-    # display error message on screen
-    print("ERROR: " + errorMessage)
-    
-    # write error message to log
+    # write error message to log file
     writeLog(False, errorMessage, dateTimeStamp)
     
     # email error message to administrator
@@ -71,11 +92,15 @@ def errorProcessing(errorMessage, dateTimeStamp):
 
 ## main function
 def main():
-    """ Main function.  Backup a series of files or directories referred to by
-        command line argument and specified in jobs in the backupscfg.py file.
-        Successful backups are written to the log file, backup.log.
-        Errors are displayed on the screen, emailed to the adminstrator and 
-        written to the log file, backup.log.
+    """
+    Main function.  Backup a series of files or directories referred to by
+    command line argument and specified in jobs in the backupscfg.py file.
+    Successful backups are written to the log file, backup.log.
+    Errors are displayed on the screen, emailed to the adminstrator and 
+    written to the log file, backup.log.
+    Details of files and directories to be backed-up and other
+    configuration details are specified in the configuration file,
+    backupscfg.py.
     """
 
     try:
