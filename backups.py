@@ -17,6 +17,9 @@ import shutil
 import smtplib
 from datetime import datetime
 from backupscfg import jobs, smtp, backupDir, logFile # configuration file
+import curses
+from curses import wrapper
+from curses.textpad import Textbox, rectangle
 
 ## functions
 def writeLog(success, message, dateTimeStamp):
@@ -90,6 +93,39 @@ def errorProcessing(errorMessage, dateTimeStamp):
     # email error message to administrator
     #sendEmail(errorMessage, dateTimeStamp)
 
+def getDims(win):
+    rows = curses.LINES
+    cols = curses.COLS
+    win.addstr(f"Lines: {rows}, Rows: {cols}\n")
+    win.refresh()
+    win.addstr("Press any key to continue.")
+    win.getch()
+    return rows, cols
+
+def showPage(win, title, rows, cols):
+    win.clear()
+    win.addstr(0, int((cols - len(title)) / 2), title)
+    win.addstr(rows - 2, 0, "[R]un [V]iew [A]dd [C]hange [D]elete E[x]it")
+    
+    jobsList = curses.newpad(10, 200)
+   
+    jobsList.addstr(0, 0, "1 Job1 /src/file.txt /backups") 
+    jobsList.addstr(1, 0, "2 Job2 /src/file.txt /backups") 
+    jobsList.addstr(2, 0, "3 Job3 /src/file.txt /backups") 
+    
+    jobsList.refresh(0, 0, 1, 0, rows - 3, cols)
+    
+def maintainBackups(stdScr):
+    stdScr = curses.initscr()
+    rows, cols = getDims(stdScr)
+    showPage(stdScr, "Backups", rows, cols)
+   
+    stdScr.addstr("Press any key to end.")
+    #stdScr.refresh()
+    stdScr.getch()
+    
+    curses.endwin()
+
 ## main function
 def main():
     """
@@ -109,8 +145,15 @@ def main():
         dateTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")  
         
         # check for job name as command line argument
-        if len(sys.argv) != 2:
-            errorProcessing("Job name missing from command line", dateTimeStamp)
+        # error condition
+        if len(sys.argv) > 2:
+            errorProcessing("Usage: backups.py job1 # immediate mode, run job1 | backups.py # maintenance mode", dateTimeStamp)
+            
+        # enter backups maintenance mode
+        elif len(sys.argv) == 1:
+            wrapper(maintainBackups)
+        
+        # process job from command line    
         else:
             
             # get job name from command line and check it is included
@@ -154,7 +197,7 @@ def main():
                             writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
     
     except Exception as e:
-        print("ERROR: backup.py program failed: " + str(e))
+        print("ERROR: backups.py program failed: " + str(e))
   
 ## call main function  
 if __name__ == "__main__":
