@@ -93,6 +93,9 @@ def errorProcessing(errorMessage, dateTimeStamp):
     # email error message to administrator
     #sendEmail(errorMessage, dateTimeStamp)
 
+YELLOWBLACK = 1
+BLUEBLACK = 2
+
 def getDims(win):
     rows = curses.LINES
     cols = curses.COLS
@@ -104,26 +107,55 @@ def getDims(win):
 
 def showPage(win, title, rows, cols):
     win.clear()
-    win.addstr(0, int((cols - len(title)) / 2), title)
-    win.addstr(rows - 2, 0, "[R]un [V]iew [A]dd [C]hange [D]elete E[x]it")
+    win.addstr(0, int((cols - len(title)) / 2), title, curses.color_pair(YELLOWBLACK) | curses.A_BOLD)
+    win.addstr(1, 0, "   Job    Source                        Destination", curses.color_pair(YELLOWBLACK))
+    win.addstr(rows - 2, 0, "[ ]un [ ]iew [ ]dd [ ]hange [ ]elete [ ]Scroll E[ ]it", curses.color_pair(BLUEBLACK))
+    win.addstr(rows - 2, 1, "R", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 7, "V", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 14, "A", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 20, "C", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 29, "D", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 38, chr(8597), curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 49, "X", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    curses.setsyx(rows - 1, 0)
+    win.refresh()
+
+def listBackups(jobsList, rows, cols, firstRow):
+    jobsList.addstr(0, 0, "1  Job1   /src/file.txt                 /backups")
+    jobsList.addstr(1, 0, "2  Job2   /src/file.txt                 /backups")
+    jobsList.addstr(2, 0, "3  Job3   /src/file.txt                 /backups")
+    jobsList.addstr(3, 0, "4  Job4   /src/file.txt                 /backups")
+    jobsList.addstr(4, 0, "5  Job5   /src/file.txt                 /backups")
+    jobsList.addstr(5, 0, "6  Job6   /src/file.txt                 /backups")
     
-    jobsList = curses.newpad(10, 200)
-   
-    jobsList.addstr(0, 0, "1 Job1 /src/file.txt /backups") 
-    jobsList.addstr(1, 0, "2 Job2 /src/file.txt /backups") 
-    jobsList.addstr(2, 0, "3 Job3 /src/file.txt /backups") 
-    
-    jobsList.refresh(0, 0, 1, 0, rows - 3, cols)
-    
+    jobsList.refresh(firstRow, 0, 2, 0, rows - 3, cols - 1)
+    curses.setsyx(rows - 1, 0)
+
 def maintainBackups(stdScr):
+    curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
     stdScr = curses.initscr()
+    stdScr.leaveok(True)
     rows, cols = getDims(stdScr)
-    showPage(stdScr, "Backups", rows, cols)
+    showPage(stdScr, "SuniTAFE Backups", rows, cols)
+  
+    jobsList = curses.newpad(100, 100)
+    firstRow = 0
+    lastRow = 5
+    listBackups(jobsList, rows, cols, firstRow)
    
-    stdScr.addstr("Press any key to end.")
-    #stdScr.refresh()
-    stdScr.getch()
-    
+    while True: 
+        key = stdScr.getch()
+        
+        if (key == curses.KEY_DOWN) and (firstRow < lastRow):
+            firstRow += 1
+            listBackups(jobsList, rows, cols, firstRow)
+        elif (key == curses.KEY_UP) and (firstRow > 0):
+            firstRow -= 1
+            listBackups(jobsList, rows, cols, firstRow)
+        elif key == ord('x'):
+            break
+             
     curses.endwin()
 
 ## main function
