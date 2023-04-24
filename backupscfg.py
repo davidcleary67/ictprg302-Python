@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# jobs dictionary
+# jobs settings
 jobs = {"job1" : ["work/file1.txt", "work/file2.txt"],
         "job2" : ["work/dir1"],
         "job3" : ["work/missing.txt"]}
@@ -10,7 +10,7 @@ smtp = {"sender": "dcleary@sunitafe.edu.au",
         "recipient": "davidcgcleary@gmail.com",
         "server": "smtp.gmail.com",
         "port": 587,
-        "user": "davidcgcleary@gmail.com", # need to specify a gmail email address with an app password setup
+        "user": "davidcgcleary@gmail.com", # need a gmail email address with a defined app password
         "password": "buaytgfwfrxxudme"}    # need a gmail app password     
 
 # backup directory
@@ -18,4 +18,3 @@ backupDir = "backups"
 
 # log file
 logFile = "backup.log"
-
