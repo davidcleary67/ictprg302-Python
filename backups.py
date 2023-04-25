@@ -96,6 +96,7 @@ def errorProcessing(errorMessage, dateTimeStamp):
 
 YELLOWBLACK = 1
 BLUEBLACK = 2
+GREENBLACK = 3
 
 def getDims(win, pause):
     rows = curses.LINES
@@ -174,10 +175,26 @@ def showMessage(win, message, delay=1):
     time.sleep(delay)
     win.clear()
     win.refresh()
-    
+  
+def getInput(win, prompt, maxLen = 20):
+    win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
+    win.refresh()
+    inp = win.getstr(0, len(prompt), maxLen).decode(encoding="utf-8")
+    win.refresh()
+    return inp
+
+def updateInput(win, prompt, maxLen = 20):
+    #curses.echo() 
+    win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
+    win.refresh()
+    box = Textbox(win)
+    inp = box.edit()
+    return inp
+
 def maintainBackups(stdScr):
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
+    curses.init_pair(GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)
     stdScr = curses.initscr()
     stdScr.leaveok(True)
     rows, cols = getDims(stdScr, False)
@@ -196,7 +213,9 @@ def maintainBackups(stdScr):
     while True: 
         key = stdScr.getch()
         
-        if (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
+        if key == ord('v'):
+            jobNumber = getInput(dispWin, "Job number: ")
+        elif (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
             firstRow += 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
         elif (key == curses.KEY_UP) and (firstRow > 0):
