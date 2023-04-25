@@ -15,6 +15,7 @@ import os
 import pathlib
 import shutil
 import smtplib
+import time
 from datetime import datetime
 from backupscfg import jobs, smtp, backupDir, logFile # configuration file
 import curses
@@ -96,65 +97,118 @@ def errorProcessing(errorMessage, dateTimeStamp):
 YELLOWBLACK = 1
 BLUEBLACK = 2
 
-def getDims(win):
+def getDims(win, pause):
     rows = curses.LINES
     cols = curses.COLS
     win.addstr(f"Lines: {rows}, Rows: {cols}\n")
     win.refresh()
-    win.addstr("Press any key to continue.")
-    win.getch()
+    if pause:
+        win.addstr("Press any key to continue.")
+        win.getch()
     return rows, cols
 
 def showPage(win, title, rows, cols):
     win.clear()
     win.addstr(0, int((cols - len(title)) / 2), title, curses.color_pair(YELLOWBLACK) | curses.A_BOLD)
-    win.addstr(1, 0, "   Job    Source                        Destination", curses.color_pair(YELLOWBLACK))
-    win.addstr(rows - 2, 0, "[ ]un [ ]iew [ ]dd [ ]hange [ ]elete [ ]Scroll E[ ]it", curses.color_pair(BLUEBLACK))
-    win.addstr(rows - 2, 1, "R", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 7, "V", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 14, "A", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 20, "C", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 29, "D", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 38, chr(8597), curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(rows - 2, 49, "X", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(1, 0, "[ ]ackup directory: ", curses.color_pair(BLUEBLACK))
+    win.addstr(1, 1, "B", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(1, 20, "backups/latest")
+    win.addstr(2, 0, "   Jobname   Source files and directories", curses.color_pair(YELLOWBLACK))
+    win.addstr(rows - 2, 0, "Job: [ ]un [ ]iew [ ]dd [ ]hange [ ]elete [ ]Scroll, [ ]ave E[ ]it", curses.color_pair(BLUEBLACK))
+    win.addstr(rows - 2, 6, "R", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 12, "V", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 19, "A", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 25, "C", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 34, "D", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 43, chr(8597), curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 54, "S", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    win.addstr(rows - 2, 62, "X", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
     curses.setsyx(rows - 1, 0)
     win.refresh()
 
-def listBackups(jobsList, rows, cols, firstRow):
-    jobsList.addstr(0, 0, "1  Job1   /src/file.txt                 /backups")
-    jobsList.addstr(1, 0, "2  Job2   /src/file.txt                 /backups")
-    jobsList.addstr(2, 0, "3  Job3   /src/file.txt                 /backups")
-    jobsList.addstr(3, 0, "4  Job4   /src/file.txt                 /backups")
-    jobsList.addstr(4, 0, "5  Job5   /src/file.txt                 /backups")
-    jobsList.addstr(5, 0, "6  Job6   /src/file.txt                 /backups")
+def listBackups(jobs, jobsList, rows, cols, firstRow):
+    row = 0 
+    for job in jobs:
+        jobStr = f"{row + 1:<3}{job['name']:<10}{job['source']:<}"
+        jobsList.addstr(row, 0, jobStr)
+        row += 1
     
-    jobsList.refresh(firstRow, 0, 2, 0, rows - 3, cols - 1)
-    curses.setsyx(rows - 1, 0)
+    jobsList.refresh(firstRow, 0, 3, 0, rows - 3, cols - 1)
+    #curses.setsyx(rows - 1, 0)
 
+backupsFile = "backups.dat"
+
+def loadBackups():
+    try:
+        jobs = []
+        file = open(backupsFile, "r")
+        jobData = file.readlines()
+        for jobStr in jobData:
+            jobList = jobStr.split(" ")
+            jobs.append({"name": jobList[0], "source": jobList[1]})
+        file.close()
+        return jobs
+
+    except FileNotFoundError:
+        print("ERROR: Backups data file " + backupsFile + " does not exist", file=sys.stderr)
+   
+    except IOError:
+        print("ERROR: Backups data file " + backupsFile + " is not accessible", file=sys.stderr)
+
+def saveBackups(jobs):
+    try:
+        file = open(backupsFile, "w")
+        for job in jobs:
+            file.write(job["name"] + " " + job["source"])
+        file.close()
+
+    except FileNotFoundError:
+        print("ERROR: Backups data file " + backupsFile + " does not exist", file=sys.stderr)
+   
+    except IOError:
+        print("ERROR: Backups data file " + backupsFile + " is not accessible", file=sys.stderr)
+   
+def showMessage(win, message, delay=1):
+    win.addstr(0, 0, message, curses.color_pair(YELLOWBLACK) | curses.A_REVERSE)
+    win.refresh()
+    time.sleep(delay)
+    win.clear()
+    win.refresh()
+    
 def maintainBackups(stdScr):
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
     stdScr = curses.initscr()
     stdScr.leaveok(True)
-    rows, cols = getDims(stdScr)
+    rows, cols = getDims(stdScr, False)
     showPage(stdScr, "SuniTAFE Backups", rows, cols)
-  
-    jobsList = curses.newpad(100, 100)
+ 
+    dispWin = curses.newwin(1, cols, rows - 1, 0) 
+    
+    jobs = loadBackups() 
     firstRow = 0
-    lastRow = 5
-    listBackups(jobsList, rows, cols, firstRow)
-   
+    lastRow = len(jobs)
+    jobsList = curses.newpad(100, 100)
+    listBackups(jobs, jobsList, rows, cols, firstRow)
+  
+    saved = True
+    
     while True: 
         key = stdScr.getch()
         
-        if (key == curses.KEY_DOWN) and (firstRow < lastRow):
+        if (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
             firstRow += 1
-            listBackups(jobsList, rows, cols, firstRow)
+            listBackups(jobs, jobsList, rows, cols, firstRow)
         elif (key == curses.KEY_UP) and (firstRow > 0):
             firstRow -= 1
-            listBackups(jobsList, rows, cols, firstRow)
+            listBackups(jobs, jobsList, rows, cols, firstRow)
+        elif key == ord('s'):
+            saveBackups(jobs)
+            showMessage(dispWin, "Backup jobs saved.")
+            saved = True
         elif key == ord('x'):
             break
+        curses.setsyx(rows - 1, 0)
              
     curses.endwin()
 
