@@ -1,4 +1,5 @@
-Job1 src/file1.txt:backups
+/work/local/backups
+Job1 src/file2.txt:backups
 Job2 src/file2.txt:backups
 Job3 src/file3.txt:backups
 Job4 src/file4.txt:backups

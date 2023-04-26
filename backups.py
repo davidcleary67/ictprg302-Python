@@ -98,6 +98,8 @@ YELLOWBLACK = 1
 BLUEBLACK = 2
 GREENBLACK = 3
 
+saved = True
+
 def getDims(win, pause):
     rows = curses.LINES
     cols = curses.COLS
@@ -108,12 +110,14 @@ def getDims(win, pause):
         win.getch()
     return rows, cols
 
+def showBackupLabel(win):
+    win.addstr(1, 0, "[ ]ackup directory: ", curses.color_pair(BLUEBLACK))
+    win.addstr(1, 1, "B", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+
 def showPage(win, title, rows, cols):
     win.clear()
     win.addstr(0, int((cols - len(title)) / 2), title, curses.color_pair(YELLOWBLACK) | curses.A_BOLD)
-    win.addstr(1, 0, "[ ]ackup directory: ", curses.color_pair(BLUEBLACK))
-    win.addstr(1, 1, "B", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    win.addstr(1, 20, "backups/latest")
+    showBackupLabel(win)
     win.addstr(2, 0, "   Jobname   Source files and directories", curses.color_pair(YELLOWBLACK))
     win.addstr(rows - 2, 0, "Job: [ ]un [ ]iew [ ]dd [ ]hange [ ]elete [ ]Scroll, [ ]ave E[ ]it", curses.color_pair(BLUEBLACK))
     win.addstr(rows - 2, 6, "R", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
@@ -129,6 +133,7 @@ def showPage(win, title, rows, cols):
 
 def listBackups(jobs, jobsList, rows, cols, firstRow):
     row = 0 
+    jobsList.clear()
     for job in jobs:
         jobStr = f"{row + 1:<3}{job['name']:<10}{job['source']:<}"
         jobsList.addstr(row, 0, jobStr)
@@ -144,11 +149,16 @@ def loadBackups():
         jobs = []
         file = open(backupsFile, "r")
         jobData = file.readlines()
+        first = True
         for jobStr in jobData:
-            jobList = jobStr.split(" ")
-            jobs.append({"name": jobList[0], "source": jobList[1]})
+            if first:
+                backupDir = jobStr.rstrip("\n")
+                first = False
+            else:
+                jobList = jobStr.split(" ")
+                jobs.append({"name": jobList[0], "source": jobList[1]})
         file.close()
-        return jobs
+        return backupDir, jobs
 
     except FileNotFoundError:
         print("ERROR: Backups data file " + backupsFile + " does not exist", file=sys.stderr)
@@ -156,11 +166,12 @@ def loadBackups():
     except IOError:
         print("ERROR: Backups data file " + backupsFile + " is not accessible", file=sys.stderr)
 
-def saveBackups(jobs):
+def saveBackups(backupDir, jobs):
     try:
         file = open(backupsFile, "w")
+        file.write(backupDir.rstrip(" \t\n") + "\n")
         for job in jobs:
-            file.write(job["name"] + " " + job["source"])
+            file.write(job["name"].rstrip(" \t\n") + " " + job["source"].rstrip(" \t\n") + "\n")
         file.close()
 
     except FileNotFoundError:
@@ -169,13 +180,25 @@ def saveBackups(jobs):
     except IOError:
         print("ERROR: Backups data file " + backupsFile + " is not accessible", file=sys.stderr)
    
-def showMessage(win, message, delay=1):
+def showMessage(win, message, autoClear = True, delay=1):
+    win.clear()
     win.addstr(0, 0, message, curses.color_pair(YELLOWBLACK) | curses.A_REVERSE)
     win.refresh()
-    time.sleep(delay)
+    if autoClear:
+        time.sleep(delay)
+        win.clear()
+        win.refresh()
+
+def getInput(win, prompt, maxLen = 20):
+    curses.echo()
+    win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
+    win.refresh()
+    inp = win.getstr(0, len(prompt), maxLen).decode(encoding="utf-8")
+    curses.noecho()
     win.clear()
     win.refresh()
-  
+    return inp
+
 def getIntInput(win, prompt, maxLen = 20):
     curses.echo()
     win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
@@ -206,29 +229,61 @@ def keyList(inpList):
         outList.append(ord(k.upper()))
     return outList
     
+def showBackupDir(win, backupDir):
+    win.addstr(0, 0, backupDir)
+    win.refresh()
+
+def hideCursor(win):
+    win.addstr(0, 0, "")
+    win.refresh()
+    win.clear()
+    win.refresh()
+   
+def showBackup(win, job):
+    win.clear()
+    win.addstr(0, 0, "Jobname: ", curses.color_pair(YELLOWBLACK))
+    win.addstr(1, 0, job["name"])
+    win.addstr(2, 0, "Source files and directories: ", curses.color_pair(YELLOWBLACK))
+    win.addstr(3, 0, job["source"])
+    win.refresh()
+
 def maintainBackups(stdScr):
+    global saved
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)
     stdScr = curses.initscr()
     stdScr.leaveok(True)
     rows, cols = getDims(stdScr, False)
+    
     showPage(stdScr, "SuniTAFE Backups", rows, cols)
  
-    dispWin = curses.newwin(1, cols, rows - 1, 0) 
+    backupDir, jobs = loadBackups() 
     
-    jobs = loadBackups() 
+    backupWin = curses.newwin(1, cols - 20, 1, 20)
+    backupText = curses.textpad.Textbox(backupWin, insert_mode = True)
+    
+    dispWin = curses.newwin(1, cols, rows - 1, 0) 
+   
+    jobWin = curses.newwin(rows - 2, cols, 1, 0) 
+    
     firstRow = 0
     lastRow = len(jobs)
     jobsList = curses.newpad(100, 100)
-    listBackups(jobs, jobsList, rows, cols, firstRow)
-  
-    saved = True
     
+    showBackupDir(backupWin, backupDir)
+    listBackups(jobs, jobsList, rows, cols, firstRow)
+    
+    hideCursor(dispWin)
+  
     while True: 
         key = stdScr.getch()
         
-        if key in keyList(['r', 'v', 'a', 'c', 'd']):
+        if key in keyList(['b']):
+            backupWin.refresh()
+            backupDir = backupText.edit()
+            saved = False
+        elif key in keyList(['r', 'v', 'a', 'c', 'd']):
             jobNumber = getIntInput(dispWin, "Job number: ", len(str(len(jobs))))
             if (jobNumber < 1) or (jobNumber > len(jobs)):
                 showMessage(dispWin, "Invalid job number.")
@@ -236,13 +291,27 @@ def maintainBackups(stdScr):
                 if key in keyList(['r']):
                     pass
                 if key in keyList(['v']):
-                    pass
+                    showBackup(jobWin, jobs[jobNumber -1])
+                    showMessage(dispWin, "Press any key to continue.", False)
+                    stdScr.getch()
+                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
+                    showBackupDir(backupWin, backupDir)
+                    listBackups(jobs, jobsList, rows, cols, firstRow)
                 if key in keyList(['a']):
                     pass
                 if key in keyList(['c']):
                     pass
                 if key in keyList(['d']):
-                    pass
+                    showBackup(jobWin, jobs[jobNumber -1])
+                    showMessage(dispWin, "Delete this job Y/N?", False)
+                    key = stdScr.getch()
+                    if key in keyList(['y']):
+                        jobs.pop(jobNumber - 1)
+                        lastRow = len(jobs)
+                        saved = False
+                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
+                    showBackupDir(backupWin, backupDir)
+                    listBackups(jobs, jobsList, rows, cols, firstRow)
         elif (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
             firstRow += 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
@@ -250,12 +319,19 @@ def maintainBackups(stdScr):
             firstRow -= 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
         elif key in keyList(['s']):
-            saveBackups(jobs)
+            saveBackups(backupDir, jobs)
             showMessage(dispWin, "Backup jobs saved.")
             saved = True
         elif key in keyList(['x']):
+            if not saved:
+                showMessage(dispWin, "Backups not saved. Save Y/N?", False)
+                key = stdScr.getch()
+                if key in keyList(['y']):
+                    saveBackups(backupDir, jobs)
+                    showMessage(dispWin, "Backup jobs saved.")
+                    saved = True
             break
-        curses.setsyx(rows - 1, 0)
+        hideCursor(dispWin)
              
     curses.endwin()
 
