@@ -176,21 +176,36 @@ def showMessage(win, message, delay=1):
     win.clear()
     win.refresh()
   
-def getInput(win, prompt, maxLen = 20):
+def getIntInput(win, prompt, maxLen = 20):
+    curses.echo()
     win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
     win.refresh()
     inp = win.getstr(0, len(prompt), maxLen).decode(encoding="utf-8")
+    curses.noecho()
+    win.clear()
     win.refresh()
-    return inp
+    try:
+        intInp = int(inp)
+    except:
+        intInp = 0
+    return intInp
 
 def updateInput(win, prompt, maxLen = 20):
     #curses.echo() 
+    box = Textbox(win, insert_mode = True)
     win.addstr(0, 0, prompt, curses.color_pair(GREENBLACK))
     win.refresh()
-    box = Textbox(win)
     inp = box.edit()
+    data = box.gather()
     return inp
 
+def keyList(inpList):
+    outList = []
+    for k in inpList:
+        outList.append(ord(k.lower()))
+        outList.append(ord(k.upper()))
+    return outList
+    
 def maintainBackups(stdScr):
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
@@ -213,19 +228,32 @@ def maintainBackups(stdScr):
     while True: 
         key = stdScr.getch()
         
-        if key == ord('v'):
-            jobNumber = getInput(dispWin, "Job number: ")
+        if key in keyList(['r', 'v', 'a', 'c', 'd']):
+            jobNumber = getIntInput(dispWin, "Job number: ", len(str(len(jobs))))
+            if (jobNumber < 1) or (jobNumber > len(jobs)):
+                showMessage(dispWin, "Invalid job number.")
+            else:
+                if key in keyList(['r']):
+                    pass
+                if key in keyList(['v']):
+                    pass
+                if key in keyList(['a']):
+                    pass
+                if key in keyList(['c']):
+                    pass
+                if key in keyList(['d']):
+                    pass
         elif (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
             firstRow += 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
         elif (key == curses.KEY_UP) and (firstRow > 0):
             firstRow -= 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
-        elif key == ord('s'):
+        elif key in keyList(['s']):
             saveBackups(jobs)
             showMessage(dispWin, "Backup jobs saved.")
             saved = True
-        elif key == ord('x'):
+        elif key in keyList(['x']):
             break
         curses.setsyx(rows - 1, 0)
              
