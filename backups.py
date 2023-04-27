@@ -156,7 +156,7 @@ def loadBackups():
                 first = False
             else:
                 jobList = jobStr.split(" ")
-                jobs.append({"name": jobList[0], "source": jobList[1]})
+                jobs.append({"name": jobList[0].rstrip("\n"), "source": jobList[1].rstrip("\n")})
         file.close()
         return backupDir, jobs
 
@@ -239,14 +239,18 @@ def hideCursor(win):
     win.clear()
     win.refresh()
    
-def showBackup(win, job):
+def showBackup(win, update = False):
     win.clear()
     win.addstr(0, 0, "Jobname: ", curses.color_pair(YELLOWBLACK))
-    win.addstr(1, 0, job["name"])
     win.addstr(2, 0, "Source files and directories: ", curses.color_pair(YELLOWBLACK))
-    win.addstr(3, 0, job["source"])
+    win.addstr(2, 30, "(Ctrl-G to exit)" if update else "", curses.color_pair(YELLOWBLACK))
     win.refresh()
 
+def showField(win, field):
+    win.clear()
+    win.addstr(0, 0, field)
+    win.refresh()
+    
 def maintainBackups(stdScr):
     global saved
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
@@ -266,6 +270,10 @@ def maintainBackups(stdScr):
     dispWin = curses.newwin(1, cols, rows - 1, 0) 
    
     jobWin = curses.newwin(rows - 2, cols, 1, 0) 
+    jobnameWin = curses.newwin(1, 10, 2, 0)
+    jobnameText = curses.textpad.Textbox(jobnameWin, insert_mode = True)
+    sourceWin = curses.newwin(2, cols - 1, 4, 0)
+    sourceText = curses.textpad.Textbox(sourceWin, insert_mode = True)
     
     firstRow = 0
     lastRow = len(jobs)
@@ -283,7 +291,27 @@ def maintainBackups(stdScr):
             backupWin.refresh()
             backupDir = backupText.edit()
             saved = False
-        elif key in keyList(['r', 'v', 'a', 'c', 'd']):
+        elif key in keyList(['a']):
+            showBackup(jobWin, True)
+            jobname = ""
+            while jobname == "":
+                showField(jobnameWin, "")
+                jobname = jobnameText.edit()
+                if jobname == "":
+                    showMessage(dispWin, "Invalid jobname.")
+            source = ""
+            while source == "":
+                showField(sourceWin, "")
+                source = sourceText.edit()
+                if source == "":
+                    showMessage(dispWin, "Invalid source.")
+            jobs.append({"name": jobname.replace(" ", "").replace("\t", "").replace("\n", ""), "source": source.replace(" ", "").replace("\t", "").replace("\n", "")})
+            lastRow += 1
+            showPage(stdScr, "SuniTAFE Backups", rows, cols)
+            showBackupDir(backupWin, backupDir)
+            listBackups(jobs, jobsList, rows, cols, firstRow)    
+            saved = False
+        elif key in keyList(['r', 'v', 'c', 'd']):
             jobNumber = getIntInput(dispWin, "Job number: ", len(str(len(jobs))))
             if (jobNumber < 1) or (jobNumber > len(jobs)):
                 showMessage(dispWin, "Invalid job number.")
@@ -291,18 +319,32 @@ def maintainBackups(stdScr):
                 if key in keyList(['r']):
                     pass
                 if key in keyList(['v']):
-                    showBackup(jobWin, jobs[jobNumber -1])
+                    showBackup(jobWin)
+                    showField(jobnameWin, jobs[jobNumber - 1]["name"])
+                    showField(sourceWin, jobs[jobNumber - 1]["source"])
                     showMessage(dispWin, "Press any key to continue.", False)
                     stdScr.getch()
                     showPage(stdScr, "SuniTAFE Backups", rows, cols)
                     showBackupDir(backupWin, backupDir)
                     listBackups(jobs, jobsList, rows, cols, firstRow)
-                if key in keyList(['a']):
-                    pass
                 if key in keyList(['c']):
-                    pass
+                    showBackup(jobWin, True)
+                    showField(jobnameWin, jobs[jobNumber - 1]["name"])
+                    showField(sourceWin, jobs[jobNumber - 1]["source"])
+                    jobnameWin.refresh()
+                    jobname = jobnameText.edit()
+                    jobs[jobNumber - 1]["name"] = jobname.replace(" ", "").replace("\t", "").replace("\n", "") if jobname != "" else jobs[jobNumber - 1]["name"]
+                    sourceWin.refresh()
+                    source = sourceText.edit()
+                    jobs[jobNumber - 1]["source"] = source.replace(" ", "").replace("\t", "").replace("\n", "") if source != "" else jobs[jobNumber - 1]["source"]
+                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
+                    showBackupDir(backupWin, backupDir)
+                    listBackups(jobs, jobsList, rows, cols, firstRow)
+                    saved = False
                 if key in keyList(['d']):
-                    showBackup(jobWin, jobs[jobNumber -1])
+                    showBackup(jobWin)
+                    showField(jobnameWin, jobs[jobNumber - 1]["name"])
+                    showField(sourceWin, jobs[jobNumber - 1]["source"])
                     showMessage(dispWin, "Delete this job Y/N?", False)
                     key = stdScr.getch()
                     if key in keyList(['y']):
