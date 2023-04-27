@@ -334,6 +334,7 @@ def maintainBackups(stdScr):
             else:
                 if key in keyList(['r']):
                     showRun(runWin, jobs[jobNumber - 1]["name"])
+                    runPad.clear()
 
                     # loop through source files/directories to be backed-up
                     sources = jobs[jobNumber - 1]["source"].split(":")                   
