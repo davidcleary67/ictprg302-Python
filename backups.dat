@@ -1,8 +1,9 @@
-/work/local/backups
-Job1 src/file2.txt:backups
+backups
+Job1 work/file1.txt:work/dir1
 Job2 src/file2.txt:backups
 Job3 src/file3.txt:backups
 Job4 src/file4.txt:backups
 Job5 src/file5.txt:backups
 Job6 src/file6.txt:backups
 Job7 previous:backups:work
+Job8 /backups/stuff:restore

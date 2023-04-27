@@ -74,7 +74,7 @@ def sendEmail(message, dateTimeStamp):
     except Exception as e:
         print("ERROR: Send email failed: " + str(e), file=sys.stderr)
 
-def errorProcessing(errorMessage, dateTimeStamp):
+def errorProcessing(errorMessage, dateTimeStamp, interactive = False, win = None):
     """ 
     Display error message to the screem, email it to the administrator and
     write it to the log file backup.log.
@@ -85,8 +85,11 @@ def errorProcessing(errorMessage, dateTimeStamp):
         dateTimeStamp (string): Date and time when program was run.
     """
 
-    # write error message to standard error
-    print("ERROR: " + errorMessage, file=sys.stderr)
+    if interactive:
+        win.addstr("ERROR: " + errorMessage)
+    else:
+        # write error message to standard error
+        print("ERROR: " + errorMessage, file=sys.stderr)
     
     # write error message to log file
     writeLog(False, errorMessage, dateTimeStamp)
@@ -128,7 +131,7 @@ def showPage(win, title, rows, cols):
     win.addstr(rows - 2, 43, chr(8597), curses.color_pair(BLUEBLACK) | curses.A_BOLD)
     win.addstr(rows - 2, 54, "S", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
     win.addstr(rows - 2, 62, "X", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
-    curses.setsyx(rows - 1, 0)
+    #curses.setsyx(rows - 1, 0)
     win.refresh()
 
 def listBackups(jobs, jobsList, rows, cols, firstRow):
@@ -251,8 +254,17 @@ def showField(win, field):
     win.addstr(0, 0, field)
     win.refresh()
     
+def showRun(win, jobName):
+    win.clear()
+    win.addstr(0, 0, "Jobname: ", curses.color_pair(YELLOWBLACK))
+    win.addstr(0, 9, jobName)
+    win.addstr(", Log entries", curses.color_pair(YELLOWBLACK))
+    win.refresh()
+
 def maintainBackups(stdScr):
     global saved
+    global dateTimeStamp
+    
     curses.init_pair(YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)
@@ -274,12 +286,16 @@ def maintainBackups(stdScr):
     jobnameText = curses.textpad.Textbox(jobnameWin, insert_mode = True)
     sourceWin = curses.newwin(2, cols - 1, 4, 0)
     sourceText = curses.textpad.Textbox(sourceWin, insert_mode = True)
+  
+    runWin = curses.newwin(rows - 2, cols, 1, 0) 
+    runPad = curses.newpad(100, cols) 
     
     firstRow = 0
     lastRow = len(jobs)
     jobsList = curses.newpad(100, 100)
     
     showBackupDir(backupWin, backupDir)
+    
     listBackups(jobs, jobsList, rows, cols, firstRow)
     
     hideCursor(dispWin)
@@ -289,7 +305,7 @@ def maintainBackups(stdScr):
         
         if key in keyList(['b']):
             backupWin.refresh()
-            backupDir = backupText.edit()
+            backupDir = backupText.edit().rstrip(" \t\n")
             saved = False
         elif key in keyList(['a']):
             showBackup(jobWin, True)
@@ -317,16 +333,54 @@ def maintainBackups(stdScr):
                 showMessage(dispWin, "Invalid job number.")
             else:
                 if key in keyList(['r']):
-                    pass
+                    showRun(runWin, jobs[jobNumber - 1]["name"])
+
+                    # loop through source files/directories to be backed-up
+                    sources = jobs[jobNumber - 1]["source"].split(":")                   
+                    for src in sources:
+                
+                        dateTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")  
+                        
+                        # check file/directory exists
+                        if not os.path.exists(src):
+                            writeLog(False, "Source file/directory: " + src + " does not exist", dateTimeStamp)
+                            runPad.addstr("FAILURE " + dateTimeStamp + " Source file/directory: " + src + " does not exist\n")
+                        
+                        else:
+                            
+                            # get destination directory and check it exists
+                            srcPath = pathlib.PurePath(src)
+                            
+                            if not os.path.exists(backupDir):
+                                writeLog(False, "Destination directory: " + backupDir + " does not exist", dateTimeStamp)
+                                runPad.addstr("FAILURE " + dateTimeStamp + " Destination directory: " + backupDir + " does not exist\n")
+                                
+                            else:
+                                
+                                # copy source directory/file to destination directory
+                                dst = backupDir + "/" + srcPath.name + "-" + dateTimeStamp
+                                
+                                # copy source directory
+                                if pathlib.Path(src).is_dir():
+                                    shutil.copytree(src, dst)
+                                    
+                                # copy source file
+                                else:
+                                    shutil.copy2(src, dst)
+                                
+                                # write success message to log
+                                writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
+                                runPad.addstr("SUCCESS " + dateTimeStamp + " Backed-up " + src + " to " + dst + "\n")
+    
+                    runPad.refresh(0, 0, 2, 0, rows - 3, cols - 1)
+                    showMessage(dispWin, "Press any key to continue.", False)
+                    stdScr.getch()
                 if key in keyList(['v']):
                     showBackup(jobWin)
                     showField(jobnameWin, jobs[jobNumber - 1]["name"])
                     showField(sourceWin, jobs[jobNumber - 1]["source"])
                     showMessage(dispWin, "Press any key to continue.", False)
                     stdScr.getch()
-                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
-                    showBackupDir(backupWin, backupDir)
-                    listBackups(jobs, jobsList, rows, cols, firstRow)
                 if key in keyList(['c']):
                     showBackup(jobWin, True)
                     showField(jobnameWin, jobs[jobNumber - 1]["name"])
@@ -337,9 +391,6 @@ def maintainBackups(stdScr):
                     sourceWin.refresh()
                     source = sourceText.edit()
                     jobs[jobNumber - 1]["source"] = source.replace(" ", "").replace("\t", "").replace("\n", "") if source != "" else jobs[jobNumber - 1]["source"]
-                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
-                    showBackupDir(backupWin, backupDir)
-                    listBackups(jobs, jobsList, rows, cols, firstRow)
                     saved = False
                 if key in keyList(['d']):
                     showBackup(jobWin)
@@ -351,9 +402,9 @@ def maintainBackups(stdScr):
                         jobs.pop(jobNumber - 1)
                         lastRow = len(jobs)
                         saved = False
-                    showPage(stdScr, "SuniTAFE Backups", rows, cols)
-                    showBackupDir(backupWin, backupDir)
-                    listBackups(jobs, jobsList, rows, cols, firstRow)
+                showPage(stdScr, "SuniTAFE Backups", rows, cols)
+                showBackupDir(backupWin, backupDir)
+                listBackups(jobs, jobsList, rows, cols, firstRow)
         elif (key == curses.KEY_DOWN) and (firstRow < lastRow - 1):
             firstRow += 1
             listBackups(jobs, jobsList, rows, cols, firstRow)
@@ -393,12 +444,13 @@ def main():
     try:
         
         # get current date time stamp
+        global dateTimeStamp
         dateTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")  
         
         # check for job name as command line argument
         # error condition
         if len(sys.argv) > 2:
-            errorProcessing("Usage: backups.py job1 # immediate mode, run job1 | backups.py # maintenance mode", dateTimeStamp)
+            print("Usage: backups.py JOB  # immediate mode, run JOB\n       backups.py      # maintenance mode, maintain all jobs", file = sys.stderr)
             
         # enter backups maintenance mode
         elif len(sys.argv) == 1:

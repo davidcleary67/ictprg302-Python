@@ -1,9 +1,0 @@
-FAILURE unknown job.
-FAILURE source file did not exist.
-SUCCESS backup completed.
-FAILURE unknown job.
-FAILURE source file did not exist.
-SUCCESS backup completed.
-FAILURE unknown job.
-FAILURE source file did not exist.
-SUCCESS backup completed.
