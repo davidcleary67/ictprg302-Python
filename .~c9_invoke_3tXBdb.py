@@ -2,8 +2,8 @@
 
 """
 Program:   backups.py
-Version:   2.0
-Date:      27 Apr 2023
+Version:   1.0
+Date:      11 Apr 2023
 Author:    David Cleary
 Licencing: Copyright 2023 SuniTAFE. All rights reserved.
 """
@@ -22,16 +22,6 @@ import curses
 from curses import wrapper
 from curses.textpad import Textbox, rectangle
 
-## global variables and constants
-
-YELLOWBLACK = 1
-BLUEBLACK = 2
-GREENBLACK = 3
-
-saved = True
-
-backupsFile = "backups.dat"
-
 ## functions
 def writeLog(success, message, dateTimeStamp):
     """
@@ -48,7 +38,8 @@ def writeLog(success, message, dateTimeStamp):
     
     try:
         file = open(logFile, "a")
-        file.write(message + "\n")
+        logMessage = ("SUCCESS " if success else "FAILURE ") + dateTimeStamp + " " + message + "\n"
+        file.write(logMessage)
         file.close()
     
     except FileNotFoundError:
@@ -83,7 +74,7 @@ def sendEmail(message, dateTimeStamp):
     except Exception as e:
         print("ERROR: Send email failed: " + str(e), file=sys.stderr)
 
-def errorProcessing(success, errorMessage, dateTimeStamp, interactive = False, win = None):
+def errorProcessing(errorMessage, dateTimeStamp, interactive = False, win = None):
     """ 
     Display error message to the screem, email it to the administrator and
     write it to the log file backup.log.
@@ -92,42 +83,27 @@ def errorProcessing(success, errorMessage, dateTimeStamp, interactive = False, w
         errorMessage (string): message to display.
         
         dateTimeStamp (string): Date and time when program was run.
-        
-        interactive (Boolean): True -> program is running in interactive mode
-                               False -> program is running in immediate mode
-                              
-        win (curses pad): if interactive mode -> screen pad on which to display 
-                          messsage
     """
 
     if interactive:
-        win.addstr(errorMessage + "\n")
-    elif not success:
+        win.addstr("ERROR: " + errorMessage)
+    else:
         # write error message to standard error
         print("ERROR: " + errorMessage, file=sys.stderr)
     
-        # email error message to administrator
-        #sendEmail(errorMessage, dateTimeStamp)
-        
     # write error message to log file
-    writeLog(success, errorMessage, dateTimeStamp)
+    writeLog(False, errorMessage, dateTimeStamp)
+    
+    # email error message to administrator
+    #sendEmail(errorMessage, dateTimeStamp)
 
+YELLOWBLACK = 1
+BLUEBLACK = 2
+GREENBLACK = 3
+
+saved = True
 
 def getDims(win, pause):
-    """ 
-    Interactive mode function
-    Get screen dimensions in rows and columns.
-        
-    Parameters:
-        win (curses screen): return dimensions of this screen
-        
-        pause (Boolean): True -> display dimensions and pause
-    
-    Returns:
-        rows (integer): screen rows
-        
-        cols (integer): screen columns
-    """
     rows = curses.LINES
     cols = curses.COLS
     win.addstr(f"Lines: {rows}, Rows: {cols}\n")
@@ -138,30 +114,10 @@ def getDims(win, pause):
     return rows, cols
 
 def showBackupLabel(win):
-    """ 
-    Interactive mode function
-    Display backup directory label
-        
-    Parameters:
-        win (curses window): window in which to display label
-    """
-    
     win.addstr(1, 0, "[ ]ackup directory: ", curses.color_pair(BLUEBLACK))
     win.addstr(1, 1, "B", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
 
 def showPage(win, rows, cols):
-    """ 
-    Interactive mode function
-    Display main screen labels and menu.
-        
-    Parameters:
-        win (curses window): window in which to display labels and menu
-        
-        rows (integer): screen rows
-        
-        cols (integer): screen columns
-    """
-
     win.clear()
     win.addstr(0, int((cols - 16) / 2), "SuniTAFE Backups", curses.color_pair(YELLOWBLACK) | curses.A_BOLD)
     showBackupLabel(win)
@@ -175,32 +131,10 @@ def showPage(win, rows, cols):
     win.addstr(rows - 2, 43, chr(8597), curses.color_pair(BLUEBLACK) | curses.A_BOLD)
     win.addstr(rows - 2, 54, "S", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
     win.addstr(rows - 2, 62, "X", curses.color_pair(BLUEBLACK) | curses.A_BOLD)
+    #curses.setsyx(rows - 1, 0)
     win.refresh()
 
 def listBackups(jobs, jobsList, rows, cols, firstRow):
-    """ 
-    Interactive mode function
-    Add all backup jobs to a curses pad and display the pad taking into account
-    current scroll settings.
-        
-    Parameters:
-        jobs (list): all backup jobs with names and sources
-        
-        jobsList (curses pad): window in which to display backup jobs
-        
-        rows (integer): screen rows
-        
-        cols (integer): screen columns
-        
-        win (curses window): window in which to display labels and menu
-        
-        rows (integer): screen rows
-        
-        cols (integer): screen columns
-        
-        firstRow (integer): index of first backup row to display
-    """
-
     row = 0 
     jobsList.clear()
     for job in jobs:
@@ -209,19 +143,11 @@ def listBackups(jobs, jobsList, rows, cols, firstRow):
         row += 1
     
     jobsList.refresh(firstRow, 0, 3, 0, rows - 3, cols - 1)
+    #curses.setsyx(rows - 1, 0)
 
+backupsFile = "backups.dat"
 
 def loadBackups():
-    """ 
-    Interactive mode function
-    Load all backup jobs from a file.
-    
-    Returns:
-        backupDir (string): backup directory
-        
-        jobs (list): all backup jobs with names and sources
-    """
-
     try:
         jobs = []
         file = open(backupsFile, "r")
@@ -244,16 +170,6 @@ def loadBackups():
         print("ERROR: Backups data file " + backupsFile + " is not accessible", file=sys.stderr)
 
 def saveBackups(backupDir, jobs):
-    """ 
-    Interactive mode function
-    Save all backup jobs to a file.
-        
-    Parameters:
-        backupDir (string): backup directory
-        
-        jobs (list): all backup jobs with names and sources
-    """
-
     try:
         file = open(backupsFile, "w")
         file.write(backupDir.rstrip(" \t\n") + "\n")
@@ -396,7 +312,8 @@ def runBackup(runWin, runPad, job, backupDir):
         
         # check file/directory exists
         if not os.path.exists(src):
-            errorProcessing(False, "FAILURE " + dateTimeStamp + " Source file/directory: " + src + " does not exist", dateTimeStamp, True, runPad)
+            writeLog(False, "Source file/directory: " + src + " does not exist", dateTimeStamp)
+            errorPrerunPad.addstr("FAILURE " + dateTimeStamp + " Source file/directory: " + src + " does not exist\n")
         
         else:
             
@@ -404,7 +321,8 @@ def runBackup(runWin, runPad, job, backupDir):
             srcPath = pathlib.PurePath(src)
             
             if not os.path.exists(backupDir):
-                errorProcessing(False, "FAILURE " + dateTimeStamp + " Destination directory: " + backupDir + " does not exist", dateTimeStamp, True, runPad)
+                writeLog(False, "Destination directory: " + backupDir + " does not exist", dateTimeStamp)
+                runPad.addstr("FAILURE " + dateTimeStamp + " Destination directory: " + backupDir + " does not exist\n")
                 
             else:
                 
@@ -420,7 +338,8 @@ def runBackup(runWin, runPad, job, backupDir):
                     shutil.copy2(src, dst)
                 
                 # write success message to log
-                errorProcessing(True, "SUCCESS " + dateTimeStamp + " Backed-up " + src + " to " + dst, dateTimeStamp, True, runPad)
+                writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
+                runPad.addstr("SUCCESS " + dateTimeStamp + " Backed-up " + src + " to " + dst + "\n")
 
 def maintainBackups(stdScr):
     global saved
@@ -465,7 +384,7 @@ def maintainBackups(stdScr):
         key = stdScr.getch()
         
         if key in keyList(['b']):
-            backupDir = setBackupDir(backupWin, backupText)
+                    viewBackup(jobWin, )
             saved = False
         elif key in keyList(['a']):
             addBackup(jobWin, dispWin, jobnameWin, jobnameText, sourceWin, sourceText, jobs)
@@ -561,7 +480,7 @@ def main():
             jobName = sys.argv[1]
             
             if not jobName in jobs:
-                errorProcessing(False, "Job: " + jobName + " not found", dateTimeStamp)
+                errorProcessing("Job: " + jobName + " not found", dateTimeStamp)
             
             else:
                 
@@ -570,7 +489,7 @@ def main():
                 
                     # check file/directory exists
                     if not os.path.exists(src):
-                        errorProcessing(False, "Source file/directory: " + src + " does not exist", dateTimeStamp)
+                        errorProcessing("Source file/directory: " + src + " does not exist", dateTimeStamp)
                     
                     else:
                         
@@ -578,7 +497,7 @@ def main():
                         srcPath = pathlib.PurePath(src)
                         
                         if not os.path.exists(backupDir):
-                            errorProcessing(False, "Destination directory: " + backupDir + " does not exist", dateTimeStamp)
+                            errorProcessing("Destination directory: " + backupDir + " does not exist", dateTimeStamp)
                             
                         else:
                             
@@ -594,7 +513,7 @@ def main():
                                 shutil.copy2(src, dst)
                             
                             # write success message to log
-                            errorProcessing(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
+                            writeLog(True, "Backed-up " + src + " to " + dst, dateTimeStamp)
     
     except Exception as e:
         print("ERROR: backups.py program failed: " + str(e))
